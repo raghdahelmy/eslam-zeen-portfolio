@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, X, User, Loader2, Sparkles, Zap, ExternalLink } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { PROFILE, SOCIAL_LINKS } from '../constants';
 
 const ChatBot: React.FC = () => {
@@ -27,54 +26,37 @@ const ChatBot: React.FC = () => {
   // Generate a dynamic string of all available links for the AI's context
   const linksContext = SOCIAL_LINKS.map(link => `- ${link.title}: ${link.url} (${link.description})`).join('\n');
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+ const handleSend = async () => {
+  if (!input.trim() || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
-    setIsLoading(true);
+  const userMessage = input.trim();
+  setInput('');
+  setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+  setIsLoading(true);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        config: {
-          systemInstruction: `أنت "روبوت EK الذكي"، المساعد الافتراضي الأكثر تطوراً لشركة EK Original وإسلام ياسين زين.
-          
-          مهمتك الأساسية:
-          1. تقديم روابط المنصات فوراً إذا طلب المستخدم أي منها. إليك الروابط المتوفرة لديك:
-          ${linksContext}
-          
-          2. إذا سأل عن "الأسعار" أو "شراء هاتف"، وجهه فوراً لمتجرنا الإلكتروني: https://www.ek-original.com
-          
-          3. معلومات الفروع في الإسماعيلية:
-          - المرحلة السابعة (الرئيسي).
-          - شارع إسكندرية.
-          - فرع سرابيوم.
-          - المواعيد: 1 ظهراً - 12 ليلاً (الجمعة من 6 مساءً).
-          
-          شخصيتك:
-          - ذكي جداً، لبق، وفخور بكيان EK Original.
-          - استخدم الرموز التعبيرية (Emojis) بشكل ممتاز.
-          - إذا سألك عن رأيك في هاتف (مثل آيفون 16 أو S24)، أعطه إجابة تقنية ذكية تشجعه على الشراء من عندنا.
-          - ردودك يجب أن تكون منسقة بأسطر واضحة وفراغات مريحة للعين.
-          
-          تذكر: أنت لست مجرد بوت، أنت واجهة ذكية لبراند فخم.`,
-          temperature: 0.8,
-        },
-      });
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMessage }),
+    });
 
-      const botResponse = response.text || "عذراً، يبدو أن هناك ضغطاً على النظام. يمكنك دائماً تصفح متجرنا مباشرة: https://www.ek-original.com";
-      setMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
-    } catch (error) {
-      console.error("Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'bot', text: "حدث خطأ بسيط في الاتصال بالذكاء الاصطناعي. يمكنك التواصل معنا عبر واتساب مباشرة أو زيارة المتجر: https://www.ek-original.com" }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const data = await res.json();
+
+    setMessages(prev => [
+      ...prev,
+      { role: 'bot', text: data.text }
+    ]);
+  } catch (error) {
+    setMessages(prev => [
+      ...prev,
+      { role: 'bot', text: 'حدث خطأ تقني. يرجى زيارة المتجر: https://www.ek-original.com' }
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const renderMessageText = (text: string, isBot: boolean) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
