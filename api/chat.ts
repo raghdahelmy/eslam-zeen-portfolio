@@ -1,39 +1,61 @@
-import { GoogleGenAI } from "@google/genai";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { GoogleGenAI } from '@google/genai';
 
-export default async function handler(req: Request) {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const { message } = await req.json();
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'No message provided' });
+    }
 
     const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY!,
+      apiKey: process.env.GEMINI_API_KEY as string,
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [{ role: "user", parts: [{ text: message }] }],
+      model: 'gemini-1.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: message }],
+        },
+      ],
       config: {
         systemInstruction: `
-أنت مساعد ذكي يعمل لدى شركة EK Original.
-إذا سُئلت عن الأسعار → أرسل رابط المتجر https://www.ek-original.com
-الفروع: الإسماعيلية (المرحلة السابعة – شارع إسكندرية – سرابيوم)
-المواعيد: 1 ظهراً - 12 ليلاً (الجمعة من 6 مساءً)
+أنت روبوت ذكي يعمل لدى EK Original.
+
+قواعد مهمة:
+- لو المستخدم سأل عن السعر أو "بكام" → ابعت لينك المتجر فورًا:
+https://www.ek-original.com
+
+الفروع:
+- الإسماعيلية: المرحلة السابعة
+- شارع إسكندرية
+- سرابيوم
+
+المواعيد:
+1 ظهرًا - 12 ليلًا
+الجمعة: من 6 مساءً
 `,
         temperature: 0.7,
       },
     });
 
-    return Response.json({
+    return res.status(200).json({
       text: response.text,
     });
   } catch (error) {
-    console.error(error);
-    return Response.json(
-      { error: "AI Error" },
-      { status: 500 }
-    );
+    console.error('Chat API Error:', error);
+    return res.status(500).json({
+      text: 'حدث خطأ تقني. يرجى زيارة المتجر: https://www.ek-original.com',
+    });
   }
 }
