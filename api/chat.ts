@@ -1,10 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -17,7 +13,7 @@ export default async function handler(
     }
 
     const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY as string,
+      apiKey: process.env.GEMINI_API_KEY,
     });
 
     const response = await ai.models.generateContent({
@@ -52,10 +48,11 @@ https://www.ek-original.com
     return res.status(200).json({
       text: response.text,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Chat API Error:', error);
+
     return res.status(500).json({
-      text: 'حدث خطأ تقني. يرجى زيارة المتجر: https://www.ek-original.com',
+      text: error?.message || 'Gemini Error',
     });
   }
 }
