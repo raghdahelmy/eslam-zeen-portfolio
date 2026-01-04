@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, X, User, Loader2, Sparkles, Zap, ExternalLink } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { PROFILE } from '../constants';
 
 const ChatBot: React.FC = () => {
@@ -25,50 +24,45 @@ const ChatBot: React.FC = () => {
     return () => clearTimeout(timer);
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+const handleSend = async () => {
+  if (!input.trim() || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
-    setIsLoading(true);
+  const userMessage = input.trim();
+  setInput('');
+  setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+  setIsLoading(true);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-        config: {
-          systemInstruction: `أنت مساعد ذكي "روبوت" متطور يعمل لدى ${PROFILE.name} في شركة EK Original.
-          
-          قواعد هامة جداً للأسعار:
-          - إذا سألك المستخدم عن "الأسعار" أو "بكام" أو "السعر"، يجب أن ترسل له رابط المتجر الإلكتروني فوراً: https://www.ek-original.com
-          - أخبره أن الأسعار تتحدث باستمرار على الموقع ويمكنه الطلب مباشرة من هناك.
-          
-          قواعد التنسيق:
-          - يجب أن تقسم ردك إلى فقرات واضحة (استخدم سطرين فارغين بين الفقرات).
-          - استخدم المسافات والرموز التعبيرية (Emojis) المناسبة.
-          - عند ذكر الفروع، استخدم القوائم النقطية.
-          
-          معلومات الشركة:
-          - النشاط: بيع الهواتف الذكية وسماعات AirPods وإكسسوارات الموبايل.
-          - الفروع (الإسماعيلية): المرحلة السابعة، شارع إسكندرية، وسرابيوم.
-          - المواعيد: يومياً 1 ظهراً - 12 ليلاً | الجمعة 6 مساءً - 12 ليلاً.
-          
-          اسمك: روبوت EK الذكي.`,
-          temperature: 0.7,
-        },
-      });
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: userMessage }),
+    });
 
-      const botResponse = response.text || "عذراً، واجهت مشكلة. يرجى زيارة متجرنا: https://www.ek-original.com";
-      setMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
-    } catch (error) {
-      console.error("Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'bot', text: "حدث خطأ تقني. يرجى مراجعة الأسعار في المتجر: https://www.ek-original.com" }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const data = await res.json();
+
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: data.text || 'تابعي الأسعار من المتجر: https://www.ek-original.com',
+      },
+    ]);
+  } catch (error) {
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'bot',
+        text: 'حدث خطأ تقني. يرجى زيارة المتجر: https://www.ek-original.com',
+      },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   // Helper function to render text with clickable links
   const renderMessageText = (text: string, isBot: boolean) => {
