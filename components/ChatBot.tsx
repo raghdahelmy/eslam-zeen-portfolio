@@ -64,6 +64,7 @@ const handleSend = async () => {
 };
 
 
+
   // Helper function to render text with clickable links
   const renderMessageText = (text: string, isBot: boolean) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
