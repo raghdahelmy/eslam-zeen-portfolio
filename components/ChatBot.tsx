@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, User, Loader2, Sparkles, Zap, ExternalLink } from 'lucide-react';
+import { Bot, Send, X, User, Loader2, Sparkles, Zap, ExternalLink, Phone } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 import { PROFILE, SOCIAL_LINKS } from '../constants';
 
 const ChatBot: React.FC = () => {
@@ -24,46 +25,65 @@ const ChatBot: React.FC = () => {
   }, [messages, isOpen]);
 
   // Generate a dynamic string of all available links for the AI's context
-  const linksContext = SOCIAL_LINKS.map(link => `- ${link.title}: ${link.url} (${link.description})`).join('\n');
+  const linksContext = SOCIAL_LINKS.map(link => `- ${link.title}: ${link.url || 'لا يوجد رابط مباشر'} (${link.description})`).join('\n');
 
- const handleSend = async () => {
-  if (!input.trim() || isLoading) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
-  const userMessage = input.trim();
-  setInput('');
-  setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
-  setIsLoading(true);
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setIsLoading(true);
 
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userMessage }),
-    });
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        config: {
+          systemInstruction: `أنت "روبوت EK الذكي"، المساعد الافتراضي الأكثر تطوراً لشركة EK Original وإسلام ياسين زين.
+          
+          مهمتك الأساسية:
+          1. تقديم روابط المنصات فوراً إذا طلب المستخدم أي منها. إليك الروابط المتوفرة لديك:
+          ${linksContext}
+          
+          2. إذا سأل عن "الأسعار" أو "شراء هاتف"، وجهه فوراً لمتجرنا الإلكتروني: https://www.ek-original.com
+          
+          3. معلومات الفروع في الإسماعيلية:
+          - فرع شارع إسكندرية (الفرع الرئيسي - وسط البلد).
+          - فرع كارفور الإسماعيلية (داخل المول).
+          - فرع المرحلة السابعة (حي ثالث).
+          - فرع سرابيوم (مركز فايد).
+          - المواعيد: 1 ظهراً - 12 ليلاً (الجمعة من 6 مساءً).
+          - رقم التواصل الموحد: 01090305065
+          
+          شخصيتك:
+          - ذكي جداً، لبق، وفخور بكيان EK Original.
+          - استخدم الرموز التعبيرية (Emojis) بشكل ممتاز.
+          - إذا سألك عن رأيك في هاتف، أعطه إجابة تقنية ذكية تشجعه على الشراء من عندنا.
+          - عند ذكر رقم التليفون (01090305065)، اكتبه بوضوح ليتمكن النظام من تحويله لرابط تلقائي.
+          
+          تذكر: أنت لست مجرد بوت، أنت واجهة ذكية لبراند فخم.`,
+          temperature: 0.8,
+        },
+      });
 
-    const data = await res.json();
-
-    setMessages(prev => [
-      ...prev,
-      { role: 'bot', text: data.text }
-    ]);
-  } catch (error) {
-    setMessages(prev => [
-      ...prev,
-      { role: 'bot', text: 'حدث خطأ تقني. يرجى زيارة المتجر: https://www.ek-original.com' }
-    ]);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+      const botResponse = response.text || "عذراً، يبدو أن هناك ضغطاً على النظام. يمكنك دائماً تصفح متجرنا مباشرة: https://www.ek-original.com";
+      setMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setMessages(prev => [...prev, { role: 'bot', text: "حدث خطأ بسيط في الاتصال بالذكاء الاصطناعي. يمكنك التواصل معنا عبر واتساب مباشرة أو زيارة المتجر: https://www.ek-original.com" }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const renderMessageText = (text: string, isBot: boolean) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const combinedRegex = /(https?:\/\/[^\s]+|01[0125]\d{8}|\+201[0125]\d{8})/g;
+    const parts = text.split(combinedRegex);
     
     return parts.map((part, i) => {
-      if (part.match(urlRegex)) {
+      if (part.match(/https?:\/\/[^\s]+/)) {
         return (
           <a 
             key={i} 
@@ -74,6 +94,18 @@ const ChatBot: React.FC = () => {
           >
             {part}
             <ExternalLink size={12} className="shrink-0" />
+          </a>
+        );
+      } 
+      else if (part.match(/01[0125]\d{8}|\+201[0125]\d{8}/)) {
+        return (
+          <a 
+            key={i} 
+            href={`tel:${part}`} 
+            className={`inline-flex items-center gap-1 font-bold underline decoration-2 underline-offset-4 hover:opacity-80 transition-all ${isBot ? 'text-amber-200' : 'text-amber-400'}`}
+          >
+            {part}
+            <Phone size={12} className="shrink-0" />
           </a>
         );
       }
